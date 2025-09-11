@@ -1,0 +1,135 @@
+@import url("https://fonts.googleapis.com/css2?family=Epilogue:ital,wght@0,100..900;1,100..900&family=Montagu+Slab:opsz,wght@16..144,100..700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dina Chaumont Display Fonts */
+@font-face {
+  font-family: "DinaChaumont";
+  src: url("/fonts/dina-chaumont/DinaChaumont-DisplayBlack.otf")
+    format("opentype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DinaChaumont";
+  src: url("/fonts/dina-chaumont/DinaChaumont-DisplayBold.otf")
+    format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DinaChaumont";
+  src: url("/fonts/dina-chaumont/DinaChaumont-DisplayExtraBold.otf")
+    format("opentype");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DinaChaumont";
+  src: url("/fonts/dina-chaumont/DinaChaumont-DisplayExtraLight.otf")
+    format("opentype");
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DinaChaumont";
+  src: url("/fonts/dina-chaumont/DinaChaumont-DisplayLight.otf")
+    format("opentype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DinaChaumont";
+  src: url("/fonts/dina-chaumont/DinaChaumont-DisplayRegular.otf")
+    format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Dina Chaumont Text Fonts */
+@font-face {
+  font-family: "DinaChaumont Text";
+  src: url("/fonts/dina-chaumont/DinaChaumont-TextBold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DinaChaumont Text";
+  src: url("/fonts/dina-chaumont/DinaChaumont-TextBoldItalic.otf")
+    format("opentype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DinaChaumont Text";
+  src: url("/fonts/dina-chaumont/DinaChaumont-TextExtraBold.otf")
+    format("opentype");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DinaChaumont Text";
+  src: url("/fonts/dina-chaumont/DinaChaumont-TextExtraBoldItalic.otf")
+    format("opentype");
+  font-weight: 800;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DinaChaumont Text";
+  src: url("/fonts/dina-chaumont/DinaChaumont-TextItalic.otf")
+    format("opentype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DinaChaumont Text";
+  src: url("/fonts/dina-chaumont/DinaChaumont-TextRegular.otf")
+    format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Dreaming Outloud Font */
+@font-face {
+  font-family: "Dreaming Outloud";
+  src: url("/fonts/dreaming-outloud/dreaming-outloud-pro-regular.otf")
+    format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  html,
+  body {
+    @apply text-black bg-white;
+  }
+}
+
+.container {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
