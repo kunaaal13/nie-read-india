@@ -2,15 +2,9 @@ import { useForm } from "@tanstack/react-form";
 import React, { useState, useCallback, useMemo } from "react";
 import { z } from "zod";
 import type { FormEvent, ChangeEvent } from "react";
+import SuccessPopup from "./SuccessPopup";
 
-// ============ GOOGLE SHEETS CONFIGURATION ============
-// Replace these with your actual values
-const GOOGLE_SHEETS_API_KEY =
-  process.env.NEXT_PUBLIC_GOOGLE_SHEETS_API_KEY || "your-google-sheets-api-key";
-const GOOGLE_SPREADSHEET_ID =
-  process.env.NEXT_PUBLIC_GOOGLE_SPREADSHEET_ID || "your-spreadsheet-id";
-const GOOGLE_SHEET_NAME = process.env.NEXT_PUBLIC_GOOGLE_SHEET_NAME || "Sheet1"; // Name of the sheet tab
-const GOOGLE_SHEETS_API_URL = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SPREADSHEET_ID}/values/${GOOGLE_SHEET_NAME}:append`;
+const MACRO_URL = import.meta.env.VITE_API_MACRI_URL;
 
 // Google Sheets API response types
 interface GoogleSheetsResponse {
@@ -68,86 +62,81 @@ type SubmitMessageType = {
 } | null;
 
 // ============ GOOGLE SHEETS INTEGRATION ============
-const submitToGoogleSheets = async (
-  formData: FormData
-): Promise<GoogleSheetsResponse> => {
-  // Prepare data in the same order as form fields
-  const rowData = [
-    formData.fullName,
-    formData.email,
-    formData.class,
-    formData.section,
-    formData.school,
-    formData.city,
-    formData.schoolAddr,
-    new Date().toISOString(), // Add timestamp
-  ];
+// const submitToGoogleSheets = async (
+//   formData: FormData
+// ): Promise<GoogleSheetsResponse> => {
+//   // Prepare data in the same order as form fields
+//   const rowData = [
+//     formData.fullName,
+//     formData.email,
+//     formData.class,
+//     formData.section,
+//     formData.school,
+//     formData.city,
+//     formData.schoolAddr,
+//     new Date().toISOString(), // Add timestamp
+//   ];
 
-  const requestBody = {
-    values: [rowData],
-    majorDimension: "ROWS",
-  };
+//   const requestBody = {
+//     values: [rowData],
+//     majorDimension: "ROWS",
+//   };
+//   console.log({
+//     API: `${GOOGLE_SHEETS_API_URL}?valueInputOption=USER_ENTERED&key=${GOOGLE_SHEETS_API_KEY}`,
+//   });
+//   const response = await fetch(
+//     `${GOOGLE_SHEETS_API_URL}?valueInputOption=USER_ENTERED&key=${GOOGLE_SHEETS_API_KEY}`,
+//     {
+//       method: "POST",
+//       headers: {
+//         "Content-Type": "application/json",
+//       },
+//       body: JSON.stringify(requestBody),
+//     }
+//   );
+//   console.log({ response });
+//   if (!response.ok) {
+//     const errorData: GoogleSheetsError = await response.json();
+//     const error = new Error(
+//       `Google Sheets API Error: ${errorData.error.message}`
+//     ) as ApiError;
+//     error.status = response.status;
+//     error.code = errorData.error.status;
+//     throw error;
+//   }
 
-  const response = await fetch(
-    `${GOOGLE_SHEETS_API_URL}?valueInputOption=USER_ENTERED&key=${GOOGLE_SHEETS_API_KEY}`,
-    {
+//   const data: GoogleSheetsResponse = await response.json();
+//   return data;
+// };
+const submitToGoogleSheets = async (formData: FormData) => {
+  try {
+    console.log("Submitting to Google Apps Script (no-cors):", formData);
+
+    const dataToSend = {
+      ...formData,
+      timestamp: new Date().toISOString(),
+    };
+
+    // With no-cors, browsers change Content-Type to text/plain
+    // Our Apps Script now handles this properly
+    await fetch(MACRO_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    }
-  );
+      // Don't set Content-Type header with no-cors - let browser decide
+      body: JSON.stringify(dataToSend),
+      mode: "no-cors",
+    });
 
-  if (!response.ok) {
-    const errorData: GoogleSheetsError = await response.json();
-    const error = new Error(
-      `Google Sheets API Error: ${errorData.error.message}`
-    ) as ApiError;
-    error.status = response.status;
-    error.code = errorData.error.status;
+    // With no-cors, we can't read the response, so assume success
+    console.log("Request sent with no-cors mode");
+    return {
+      result: "success",
+      message: "Data sent successfully (no-cors mode)",
+    };
+  } catch (error) {
+    console.error("Error submitting to Google Sheets (no-cors):", error);
     throw error;
   }
-
-  const data: GoogleSheetsResponse = await response.json();
-  return data;
 };
-
-// Helper function to initialize Google Sheet with headers (call this once manually)
-const initializeGoogleSheetHeaders = async (): Promise<void> => {
-  const headers = [
-    "Full Name",
-    "Email",
-    "Class",
-    "Section",
-    "School",
-    "City",
-    "School Address",
-    "Submission Date",
-  ];
-
-  const requestBody = {
-    values: [headers],
-    majorDimension: "ROWS",
-  };
-
-  const response = await fetch(
-    `${GOOGLE_SHEETS_API_URL}?valueInputOption=USER_ENTERED&key=${GOOGLE_SHEETS_API_KEY}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    }
-  );
-
-  if (!response.ok) {
-    const errorData: GoogleSheetsError = await response.json();
-    throw new Error(`Failed to initialize headers: ${errorData.error.message}`);
-  }
-};
-
 // Component for handling images with error fallback
 interface ImageWithFallbackProps {
   src: string;
@@ -248,6 +237,7 @@ FormField.displayName = "FormField";
 const RegisterSection: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submitMessage, setSubmitMessage] = useState<SubmitMessageType>(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Memoize form configuration to prevent unnecessary re-renders
@@ -265,6 +255,7 @@ const RegisterSection: React.FC = () => {
       onSubmit: async (values: { value: FormData }) => {
         setIsSubmitting(true);
         setSubmitMessage(null);
+        setSubmitSuccess(false);
         setFormErrors({});
 
         try {
@@ -282,6 +273,7 @@ const RegisterSection: React.FC = () => {
               "Registration successful! Welcome to the 2025 Words-a-Day Challenge!",
             type: "success",
           });
+          setSubmitSuccess(true);
 
           // Reset form after successful submission
           const form = document.getElementById(
@@ -305,6 +297,7 @@ const RegisterSection: React.FC = () => {
               message: "Please check all required fields and try again.",
               type: "error",
             });
+            setSubmitSuccess(false);
           } else {
             let errorMessage = "Something went wrong. Please try again.";
 
@@ -326,6 +319,7 @@ const RegisterSection: React.FC = () => {
               message: errorMessage,
               type: "error",
             });
+            setSubmitSuccess(false);
           }
         } finally {
           setIsSubmitting(false);
@@ -356,155 +350,163 @@ const RegisterSection: React.FC = () => {
   );
 
   return (
-    <section className="container relative">
-      <header className="w-full relative">
-        <ImageWithFallback
-          src="/images/interested-text.svg"
-          alt="Interested in joining? Share your details"
-          className="md:w-[600px] w-[70dvw]"
-          fallbackText="Interested in joining?"
-        />
-        <ImageWithFallback
-          src="/images/black-arrow.svg"
-          alt="arrow"
-          className="md:h-[100px] h-[40px] scale-x-[-1] md:scale-x-[1] mb-2 ml-[80%] md:ml-0"
-          fallbackText="→"
-        />
-      </header>
-
-      <main className="w-full flex flex-col items-center mt-16 mb-20 md:mb-40">
-        <div className="relative mt-[-2rem] z-10 bg-[#A3DCE6] pt-10 md:pt-20 px-4 md:px-10 pb-12 w-full max-w-6xl mx-auto rounded-3xl flex flex-col items-center">
-          <header>
-            <ImageWithFallback
-              src="/images/register-text.svg"
-              alt="Register for 2025 words-a-day challenge"
-              className="z-10 absolute top-[-2%] md:top-[-10%] left-[calc(50%-min(30dvw,200px))] md:left-[calc(50%-300px)] md:w-[600px] w-[min(400px,60dvw)]"
-              fallbackText="Register"
-            />
-          </header>
-
+    <>
+      <section className="container relative">
+        <header className="w-full relative">
           <ImageWithFallback
-            src="/images/orange-flower.svg"
-            alt=""
-            className="absolute top-0 right-[-1rem] h-[50px] md:h-[150px] w-auto object-contain"
-            fallbackText=""
+            src="/images/interested-text.svg"
+            alt="Interested in joining? Share your details"
+            className="md:w-[600px] w-[70dvw]"
+            fallbackText="Interested in joining?"
           />
+          <ImageWithFallback
+            src="/images/black-arrow.svg"
+            alt="arrow"
+            className="md:h-[100px] h-[40px] scale-x-[-1] md:scale-x-[1] mb-2 ml-[80%] md:ml-0"
+            fallbackText="→"
+          />
+        </header>
 
-          <h3 className="text-center font-dreaming md:text-4xl text-base mb-4 md:mb-8">
-            Please fill in your details carefully:
-          </h3>
-
-          <form
-            id="registration-form"
-            onSubmit={handleSubmit}
-            className="w-full"
-          >
-            {/* Form Fields */}
-            <div className="space-y-2">
-              <FormField name="fullName" label="Full Name" />
-              {formErrors.fullName && (
-                <div className="text-red-600 text-xs font-epilogue ml-[5rem] md:ml-[15rem]">
-                  {formErrors.fullName}
-                </div>
-              )}
-
-              <FormField
-                name="email"
-                label="Email"
-                type="email"
-                sublabel="(student/parent)"
+        <main className="w-full flex flex-col items-center mt-16 mb-20 md:mb-40">
+          <div className="relative mt-[-2rem] z-10 bg-[#A3DCE6] pt-10 md:pt-20 px-4 md:px-10 pb-12 w-full max-w-6xl mx-auto rounded-3xl flex flex-col items-center">
+            <header>
+              <ImageWithFallback
+                src="/images/register-text.svg"
+                alt="Register for 2025 words-a-day challenge"
+                className="z-10 absolute top-[-2%] md:top-[-10%] left-[calc(50%-min(30dvw,200px))] md:left-[calc(50%-300px)] md:w-[600px] w-[min(400px,60dvw)]"
+                fallbackText="Register"
               />
-              {formErrors.email && (
-                <div className="text-red-600 text-xs font-epilogue ml-[5rem] md:ml-[15rem]">
-                  {formErrors.email}
-                </div>
-              )}
+            </header>
 
-              <FormField name="class" label="Class" />
-              {formErrors.class && (
-                <div className="text-red-600 text-xs font-epilogue ml-[5rem] md:ml-[15rem]">
-                  {formErrors.class}
-                </div>
-              )}
+            <ImageWithFallback
+              src="/images/orange-flower.svg"
+              alt=""
+              className="absolute top-0 right-[-1rem] h-[50px] md:h-[150px] w-auto object-contain"
+              fallbackText=""
+            />
 
-              <FormField name="section" label="Section" />
-              {formErrors.section && (
-                <div className="text-red-600 text-xs font-epilogue ml-[5rem] md:ml-[15rem]">
-                  {formErrors.section}
-                </div>
-              )}
+            <h3 className="text-center font-dreaming md:text-4xl text-base mb-4 md:mb-8">
+              Please fill in your details carefully:
+            </h3>
 
-              <FormField name="school" label="School" />
-              {formErrors.school && (
-                <div className="text-red-600 text-xs font-epilogue ml-[5rem] md:ml-[15rem]">
-                  {formErrors.school}
-                </div>
-              )}
-
-              <FormField name="city" label="City" />
-              {formErrors.city && (
-                <div className="text-red-600 text-xs font-epilogue ml-[5rem] md:ml-[15rem]">
-                  {formErrors.city}
-                </div>
-              )}
-
-              <FormField
-                name="schoolAddr"
-                label="School Address"
-                type="textarea"
-                rows={3}
-              />
-              {formErrors.schoolAddr && (
-                <div className="text-red-600 text-xs font-epilogue ml-[5rem] md:ml-[15rem]">
-                  {formErrors.schoolAddr}
-                </div>
-              )}
-            </div>
-
-            {/* Submit Message */}
-            {submitMessage && (
-              <div
-                className={`mt-4 p-3 rounded-md text-center font-epilogue text-sm transition-all duration-300 ${
-                  submitMessage.type === "success"
-                    ? "bg-green-100 text-green-800 border border-green-300"
-                    : submitMessage.type === "error"
-                      ? "bg-red-100 text-red-800 border border-red-300"
-                      : "bg-blue-100 text-blue-800 border border-blue-300"
-                }`}
-                role="alert"
-              >
-                {submitMessage.message}
-              </div>
-            )}
-
-            <button
-              className={`font-epilogue font-bold text-sm md:text-3xl rounded-xl absolute md:py-3 py-2 md:px-6 px-2 md:bottom-[-2rem] bottom-[-12px] left-[13%] md:left-[30%] transition-all duration-200 ${
-                isSubmitting
-                  ? "bg-gray-400 cursor-not-allowed transform scale-95"
-                  : "bg-[#0E87C6] hover:bg-[#0d7bb3] hover:transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              } text-white shadow-lg`}
-              type="submit"
-              disabled={isSubmitting}
-              aria-label={
-                isSubmitting
-                  ? "Submitting form..."
-                  : "Submit and join the challenge"
-              }
+            <form
+              id="registration-form"
+              onSubmit={handleSubmit}
+              className="w-full"
             >
-              {isSubmitting ? "Submitting..." : "Submit & Join the Challenge"}
-            </button>
-          </form>
-        </div>
-      </main>
+              {/* Form Fields */}
+              <div className="space-y-2">
+                <FormField name="fullName" label="Full Name" />
+                {formErrors.fullName && (
+                  <div className="text-red-600 text-xs font-epilogue ml-[5rem] md:ml-[15rem]">
+                    {formErrors.fullName}
+                  </div>
+                )}
 
-      {/* Orange spark image positioned at bottom left */}
-      <ImageWithFallback
-        src="/images/orange-spark.svg"
-        alt=""
-        className="absolute z-0 md:bottom-[-170px] md:left-[-34px] bottom-[-60px] left-[-15px] h-[100px] md:h-[300px] w-auto object-contain -rotate-45"
-        fallbackText=""
-      />
-    </section>
+                <FormField
+                  name="email"
+                  label="Email"
+                  type="email"
+                  sublabel="(student/parent)"
+                />
+                {formErrors.email && (
+                  <div className="text-red-600 text-xs font-epilogue ml-[5rem] md:ml-[15rem]">
+                    {formErrors.email}
+                  </div>
+                )}
+
+                <FormField name="class" label="Class" />
+                {formErrors.class && (
+                  <div className="text-red-600 text-xs font-epilogue ml-[5rem] md:ml-[15rem]">
+                    {formErrors.class}
+                  </div>
+                )}
+
+                <FormField name="section" label="Section" />
+                {formErrors.section && (
+                  <div className="text-red-600 text-xs font-epilogue ml-[5rem] md:ml-[15rem]">
+                    {formErrors.section}
+                  </div>
+                )}
+
+                <FormField name="school" label="School" />
+                {formErrors.school && (
+                  <div className="text-red-600 text-xs font-epilogue ml-[5rem] md:ml-[15rem]">
+                    {formErrors.school}
+                  </div>
+                )}
+
+                <FormField name="city" label="City" />
+                {formErrors.city && (
+                  <div className="text-red-600 text-xs font-epilogue ml-[5rem] md:ml-[15rem]">
+                    {formErrors.city}
+                  </div>
+                )}
+
+                <FormField
+                  name="schoolAddr"
+                  label="School Address"
+                  type="textarea"
+                  rows={3}
+                />
+                {formErrors.schoolAddr && (
+                  <div className="text-red-600 text-xs font-epilogue ml-[5rem] md:ml-[15rem]">
+                    {formErrors.schoolAddr}
+                  </div>
+                )}
+              </div>
+
+              {/* Submit Message */}
+              {submitMessage && (
+                <div
+                  className={`mt-4 p-3 rounded-md text-center font-epilogue text-sm transition-all duration-300 ${
+                    submitMessage.type === "success"
+                      ? "bg-green-100 text-green-800 border border-green-300"
+                      : submitMessage.type === "error"
+                        ? "bg-red-100 text-red-800 border border-red-300"
+                        : "bg-blue-100 text-blue-800 border border-blue-300"
+                  }`}
+                  role="alert"
+                >
+                  {submitMessage.message}
+                </div>
+              )}
+
+              <button
+                className={`font-epilogue font-bold text-sm md:text-3xl rounded-xl absolute md:py-3 py-2 md:px-6 px-2 md:bottom-[-2rem] bottom-[-12px] left-[13%] md:left-[30%] transition-all duration-200 ${
+                  isSubmitting
+                    ? "bg-gray-400 cursor-not-allowed transform scale-95"
+                    : "bg-[#0E87C6] hover:bg-[#0d7bb3] hover:transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                } text-white shadow-lg`}
+                type="submit"
+                disabled={isSubmitting}
+                aria-label={
+                  isSubmitting
+                    ? "Submitting form..."
+                    : "Submit and join the challenge"
+                }
+              >
+                {"Submit & Join the Challenge"}
+              </button>
+            </form>
+          </div>
+        </main>
+
+        {/* Orange spark image positioned at bottom left */}
+        <ImageWithFallback
+          src="/images/orange-spark.svg"
+          alt=""
+          className="absolute z-0 md:bottom-[-170px] md:left-[-34px] bottom-[-60px] left-[-15px] h-[100px] md:h-[300px] w-auto object-contain -rotate-45"
+          fallbackText=""
+        />
+      </section>
+      {submitSuccess && (
+        <SuccessPopup
+          isOpen={submitSuccess}
+          onClose={() => setSubmitSuccess(false)}
+        />
+      )}
+    </>
   );
 };
 

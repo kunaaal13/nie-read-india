@@ -61,7 +61,62 @@ export const Route = createRootRoute({
   shellComponent: RootDocument,
 });
 
+interface GoogleSheetsError {
+  error: {
+    code: number;
+    message: string;
+    status: string;
+  };
+}
+// Helper function to initialize Google Sheet with headers (call this once manually)
+const initializeGoogleSheetHeaders = async (): Promise<void> => {
+  const headers = [
+    "Full Name",
+    "Email",
+    "Class",
+    "Section",
+    "School",
+    "City",
+    "School Address",
+    "Submission Date",
+  ];
+
+  const requestBody = {
+    values: [headers],
+    majorDimension: "ROWS",
+  };
+  const GOOGLE_SHEETS_API_KEY =
+    import.meta.env.VITE_API_URLGOOGLE_SHEETS_API_KEY ||
+    "your-google-sheets-api-key";
+  const GOOGLE_SPREADSHEET_ID =
+    import.meta.env.VITE_API_URLGOOGLE_SPREADSHEET_ID || "your-spreadsheet-id";
+  const GOOGLE_SHEET_NAME =
+    import.meta.env.VITE_API_URLGOOGLE_SHEET_NAME || "Sheet1"; // Name of the sheet tab
+  const GOOGLE_SHEETS_API_URL = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SPREADSHEET_ID}/values/${GOOGLE_SHEET_NAME}:append`;
+
+  const response = await fetch(
+    `${GOOGLE_SHEETS_API_URL}?valueInputOption=USER_ENTERED&key=${GOOGLE_SHEETS_API_KEY}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    }
+  );
+
+  if (!response.ok) {
+    const errorData: GoogleSheetsError = await response.json();
+    throw new Error(`Failed to initialize headers: ${errorData.error.message}`);
+  }
+};
+
 function RootDocument({ children }: { children: React.ReactNode }) {
+  // initializeGoogleSheetHeaders()
+  //   .then(() => {
+  //     console.log("Headers set up successfully");
+  //   })
+  //   .catch(console.error);
   return (
     <html>
       <head>

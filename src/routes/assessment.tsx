@@ -124,7 +124,7 @@ function RouteComponent() {
             <div className="md:p-6">
               {timeLeft > 0 ? (
                 <div className="relative">
-                  <iframe
+                  {/* <iframe
                     src={decodeURIComponent(url)}
                     width="100%"
                     height="800"
@@ -134,7 +134,16 @@ function RouteComponent() {
                     className="rounded-lg  "
                   >
                     Loading assessment form...
-                  </iframe>
+                  </iframe> */}
+                  <iframe
+                    src={`https://app.youform.com/forms/${url}`}
+                    loading="lazy"
+                    width="100%"
+                    height="700"
+                    frameborder="0"
+                    marginheight="0"
+                    marginwidth="0"
+                  ></iframe>
 
                   {/* Overlay warning when time is low */}
                   {isLowTime() && (
