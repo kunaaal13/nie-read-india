@@ -4,7 +4,8 @@ import { z } from "zod";
 import type { FormEvent, ChangeEvent } from "react";
 import SuccessPopup from "./SuccessPopup";
 
-const MACRO_URL = import.meta.env.VITE_API_MACRI_URL;
+const MACRO_URL =
+  "https://script.google.com/macros/s/AKfycbzeoSLf3nipii6VUdROFo9LQd2s5T9nGtzuUpUnyoXEBAbG8mw7xo3o5eUeYjCBdQcyzQ/exec";
 
 // Google Sheets API response types
 interface GoogleSheetsResponse {
