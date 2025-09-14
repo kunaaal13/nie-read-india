@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Clock, FileText, CheckCircle } from "lucide-react";
 import { z } from "zod";
+import NavigationConfirmModal from "~/components/ExitPopup";
 
 const searchSchema = z.object({
   url: z.string(),
@@ -26,6 +27,69 @@ function RouteComponent() {
   const [isTimerActive, setIsTimerActive] = useState<boolean>(true);
   const [showThankYou, setShowThankYou] = useState<boolean>(false);
 
+  // Generate a unique session key based on URL and duration
+  const getSessionKey = () => `assessment_timer_${url}_${duration}`;
+
+  // Initialize timer from session storage or start new one
+  useEffect(() => {
+    const sessionKey = getSessionKey();
+    const storedData = sessionStorage.getItem(sessionKey);
+    
+    if (storedData) {
+      try {
+        const { startTime, originalDuration, completed } = JSON.parse(storedData);
+        
+        // Check if timer should have already expired
+        const currentTime = Date.now();
+        const elapsedTime = Math.floor((currentTime - startTime) / 1000);
+        
+        if (completed) {
+          // Timer was already completed
+          setTimeLeft(0);
+          setIsTimerActive(false);
+          setShowThankYou(true);
+        } else if (elapsedTime >= originalDuration) {
+          // Timer should have expired by now
+          setTimeLeft(0);
+          setIsTimerActive(false);
+          setShowThankYou(true);
+          // Update session storage to mark as completed
+          sessionStorage.setItem(sessionKey, JSON.stringify({
+            startTime,
+            originalDuration,
+            completed: true
+          }));
+        } else {
+          // Resume timer from where it left off
+          const remainingTime = originalDuration - elapsedTime;
+          setTimeLeft(remainingTime);
+          setIsTimerActive(true);
+        }
+      } catch (error) {
+        console.error('Error parsing stored timer data:', error);
+        // If there's an error, start fresh
+        initializeNewTimer();
+      }
+    } else {
+      // No stored data, start new timer
+      initializeNewTimer();
+    }
+
+    function initializeNewTimer() {
+      const sessionKey = getSessionKey();
+      const timerData = {
+        startTime: Date.now(),
+        originalDuration: duration,
+        completed: false
+      };
+      
+      sessionStorage.setItem(sessionKey, JSON.stringify(timerData));
+      setTimeLeft(duration);
+      setIsTimerActive(true);
+    }
+  }, [url, duration]);
+
+  // Main timer effect
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
 
@@ -35,6 +99,20 @@ function RouteComponent() {
           if (time <= 1) {
             setIsTimerActive(false);
             setShowThankYou(true);
+            
+            // Mark timer as completed in session storage
+            const sessionKey = getSessionKey();
+            const storedData = sessionStorage.getItem(sessionKey);
+            if (storedData) {
+              try {
+                const data = JSON.parse(storedData);
+                data.completed = true;
+                sessionStorage.setItem(sessionKey, JSON.stringify(data));
+              } catch (error) {
+                console.error('Error updating timer completion status:', error);
+              }
+            }
+            
             return 0;
           }
           return time - 1;
@@ -48,6 +126,41 @@ function RouteComponent() {
       if (interval) clearInterval(interval);
     };
   }, [isTimerActive, timeLeft]);
+
+  // Auto-cleanup expired session data
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      const sessionKey = getSessionKey();
+      const storedData = sessionStorage.getItem(sessionKey);
+      
+      if (storedData) {
+        try {
+          const { startTime, originalDuration, completed } = JSON.parse(storedData);
+          const currentTime = Date.now();
+          const elapsedTime = Math.floor((currentTime - startTime) / 1000);
+          
+          // If timer duration has passed, clean up the session data
+          if (elapsedTime >= originalDuration || completed) {
+            sessionStorage.removeItem(sessionKey);
+          }
+        } catch (error) {
+          // If data is corrupted, remove it
+          sessionStorage.removeItem(sessionKey);
+        }
+      }
+    }, 60000); // Check every minute
+
+    return () => clearInterval(cleanupInterval);
+  }, []);
+
+  // Clean up on component unmount (when user navigates away)
+  useEffect(() => {
+    return () => {
+      // Optional: You might want to keep the timer running even if user navigates away
+      // If you want to reset timer on navigation, uncomment the line below:
+      // sessionStorage.removeItem(getSessionKey());
+    };
+  }, []);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -192,6 +305,10 @@ function RouteComponent() {
           </div>
         )}
       </main>
+      <NavigationConfirmModal
+        shouldBlock={true}
+        message="You have unsaved changes. Are you sure you want to leave?"
+      />
     </div>
   );
 }
